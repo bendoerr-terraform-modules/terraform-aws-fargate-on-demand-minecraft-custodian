@@ -50,6 +50,7 @@ func TestRunNoParkWithoutParkedIP(t *testing.T) {
 
 func TestRunStartOnlyAfterReady(t *testing.T) {
 	h := newHarness()
+	h.settings.BootTimeout = time.Second // not under test; wide enough to absorb a scheduler stall
 	h.watcher.fn = func(call int) (int, error) {
 		if call <= 3 {
 			return 0, errors.New("connection refused")
@@ -67,6 +68,7 @@ func TestRunStartOnlyAfterReady(t *testing.T) {
 
 func TestRunActiveInactiveTransitions(t *testing.T) {
 	h := newHarness()
+	h.settings.IdleTimeout = 500 * time.Millisecond // not under test; wide enough to absorb a scheduler stall
 	readings := []int{0, 1, 2, 2, 0, 3, 0}
 	h.watcher.fn = func(call int) (int, error) {
 		if call <= len(readings) {
@@ -269,6 +271,7 @@ func TestRunPanicInWatcher(t *testing.T) {
 
 func TestRunHealthReadyOnlyAfterGateClears(t *testing.T) {
 	h := newHarness()
+	h.settings.GateTimeout = time.Second // not under test; wide enough to absorb a scheduler stall
 	h.gate.fn = func(call int) ([]string, error) {
 		switch {
 		case call == 1:
