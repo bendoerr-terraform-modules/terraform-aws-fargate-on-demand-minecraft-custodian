@@ -1,0 +1,34 @@
+name: Cleanup ghcr.io
+
+on:
+  pull_request:
+    types: [closed]
+  # every sunday at 00:00
+  schedule:
+    - cron: "0 0 * * SUN"
+  # or manually
+  workflow_dispatch:
+
+jobs:
+  purge-image:
+    name: Delete images from ghcr.io
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Delete PR Image
+        uses: bots-house/ghcr-delete-image-action@3827559c68cb4dcdf54d813ea9853be6d468d3a4 # v1.1.0
+        if: github.event_name == 'pull_request'
+        with:
+          owner: bendoerr-terraform-modules
+          name: terraform-aws-fargate-on-demand-minecraft-custodian
+          token: ${{ github.token }}
+          tag: pr-${{github.event.pull_request.number}}
+      - name: Delete Untagged Images
+        uses: bots-house/ghcr-delete-image-action@3827559c68cb4dcdf54d813ea9853be6d468d3a4 # v1.1.0
+        if: github.event_name != 'pull_request'
+        with:
+          owner: bendoerr-terraform-modules
+          name: terraform-aws-fargate-on-demand-minecraft-custodian
+          token: ${{ github.token }}
+          untagged-keep-latest: 1

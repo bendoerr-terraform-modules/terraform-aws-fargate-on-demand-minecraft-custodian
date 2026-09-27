@@ -1,0 +1,171 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  golangci-lint:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: golangci-lint
+        uses: step-security/action-golangci-lint@096b936e7ef257fb5595a0461574bec4dd400fbf # v2.10.0
+        with:
+          github_token: ${{ github.token }}
+          reporter: github-pr-review
+          fail_level: error
+          filter_mode: file
+  prettier:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: create package.json
+        # Pinned exact (not a floating ^range): a prettier minor bump must not
+        # silently reformat the tree out from under contributors. Markdown is
+        # excluded from prettier via .prettierignore — mdformat owns it.
+        run: |
+          echo -e '{"devDependencies": {"prettier": "3.3.3"}}' > package.json
+      - name: prettier
+        uses: EPMatt/reviewdog-action-prettier@f691104cbeb4b0299df971275444c64be93c03ae # v1.3.0
+        with:
+          github_token: ${{ github.token }}
+          reporter: github-pr-review
+          fail_level: error
+          filter_mode: file
+  misspell:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: misspell
+        uses: step-security/action-misspell@85d31a4bcbf1c3d99e4f224c148330e45b5a63cf # v1.27.2
+        with:
+          github_token: ${{ github.token }}
+          reporter: github-pr-review
+          fail_level: none
+          filter_mode: file
+          exclude: |
+            ./.git/*
+            ./.cache/*
+  alex:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: alex
+        uses: reviewdog/action-alex@8ea6934ac252503fe358596c681d9899f0d85485 # v1.18.0
+        with:
+          github_token: ${{ github.token }}
+          reporter: github-pr-review
+          fail_level: none
+          filter_mode: file
+          alex_flags: |
+            * .github/* .github/workflows/*
+  markdownlint:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: markdownlint
+        uses: step-security/action-markdownlint@3334baf7cc71c6d7fd284d955e1bf54a2b2ee31a # v0.28.0
+        with:
+          github_token: ${{ github.token }}
+          reporter: github-pr-review
+          fail_level: none
+          filter_mode: file
+          markdownlint_flags: |
+            --disable MD033 -- .
+  hadolint:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: hadolint
+        uses: reviewdog/action-hadolint@9d9a44af664599d7fe5ed5ee3d66d2d236cb7f8f # v1.54.0
+        with:
+          github_token: ${{ github.token }}
+          reporter: github-pr-review
+          fail_level: error
+          filter_mode: file
+  actionlint:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: actionlint
+        uses: step-security/action-actionlint@b90a9ddb65b752bc6b6888a2f30a4941d9ff62e5 # v1.73.1
+        with:
+          github_token: ${{ github.token }}
+          reporter: github-pr-review
+          fail_level: error
+          filter_mode: file
+  mdformat:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # mdformat (0.7.17) is the org's authoritative markdown formatter — prettier
+      # is excluded from markdown via .prettierignore. This repo has no pre-commit
+      # framework, so this CI check is what enforces mdformat-clean markdown.
+      - name: mdformat --check
+        run: |
+          python3 -m pip install --quiet 'mdformat==0.7.17'
+          python3 -m mdformat --check .

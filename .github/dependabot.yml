@@ -1,0 +1,47 @@
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "⬆️ (deps-ghaction):"
+    cooldown:
+      default-days: 14
+
+  - package-ecosystem: "docker"
+    directory: "/."
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "⬆️ (deps-docker):"
+    cooldown:
+      default-days: 14
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      gomod:
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "⬆️ (deps-go):"
+    cooldown:
+      default-days: 14
