@@ -30,7 +30,7 @@ A sidecar container for the `terraform-aws-fargate-on-demand` ECS task that runs
 
 ### Cleanup (runs at most once)
 
-Triggered by: idle shutdown, SIGTERM/SIGINT in any state, any error after config is valid, boot timeout, gate timeout, or a recovered panic in `Run`. Implemented as a single `sync.Once`-guarded function. SIGTERM/SIGINT cancel the `context.Context` passed to `Run` (via `signal.NotifyContext` in `main`); `Run` itself calls cleanup on every one of its exit paths, including from its own recovered-panic handler, whether that exit was a normal idle shutdown, a cancelled context, or a failure. `main` calls `Abort` — which runs the same cleanup — only for setup failures that happen before `Run` starts (e.g. a malformed watch address or a health-endpoint listen failure). Cleanup is never invoked concurrently.
+Triggered by: idle shutdown, SIGTERM/SIGINT in any state, any error after config is valid, boot timeout, gate timeout, or a recovered panic in `Run`. Implemented as a single `sync.Once`-guarded function. SIGTERM/SIGINT cancel the `context.Context` passed to `Run` (via `signal.NotifyContext` in `main`); `Run` itself calls cleanup on every one of its exit paths, including from its own recovered-panic handler, whether that exit was a normal idle shutdown, a cancelled context, or a failure. `main` calls `Abort` — which runs the same cleanup — only for setup failures that happen before `Run` starts (e.g. a malformed watch address or a health-endpoint listen failure). Cleanup is never invoked concurrently. Exception: if the AWS configuration cannot be loaded, the custodian exits 1 without cleanup, because it has no AWS clients to reap with; the module-side cost alarm is the backstop.
 
 Order (cost first — a Spot SIGTERM leaves ≤120 s):
 
