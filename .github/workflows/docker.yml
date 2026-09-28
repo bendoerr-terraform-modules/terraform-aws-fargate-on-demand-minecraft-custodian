@@ -12,6 +12,11 @@ on:
 permissions:
   contents: read
 
+# Supersede PR runs for the same ref; never cancel a publish from main or a tag.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   docker:
     runs-on: ubuntu-latest

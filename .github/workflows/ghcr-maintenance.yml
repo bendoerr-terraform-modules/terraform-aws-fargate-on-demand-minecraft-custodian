@@ -9,6 +9,10 @@ on:
   # or manually
   workflow_dispatch:
 
+# The job below grants itself packages: write; anything added later starts read-only.
+permissions:
+  contents: read
+
 jobs:
   purge-image:
     name: Delete images from ghcr.io
