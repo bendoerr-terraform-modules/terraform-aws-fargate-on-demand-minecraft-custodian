@@ -3,6 +3,7 @@ package mcjava_test
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"io"
 	"net"
 	"strconv"
@@ -111,6 +112,22 @@ func TestProbeTimesOut(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > time.Second {
 		t.Errorf("Probe() took %s; want about 100ms", elapsed)
+	}
+}
+
+// A cancelled parent context (SIGTERM) must interrupt a stalled read, not wait out the probe timeout.
+func TestProbeReturnsPromptlyWhenCancelled(t *testing.T) {
+	done := make(chan struct{})
+	t.Cleanup(func() { close(done) })
+	addr, _ := fakeServer(t, func(net.Conn) { <-done })
+	ctx, cancel := context.WithCancel(t.Context())
+	time.AfterFunc(50*time.Millisecond, cancel)
+	start := time.Now()
+	if _, err := newProber(t, addr, 5*time.Second).Probe(ctx); err == nil {
+		t.Fatal("Probe() error = nil; want cancellation error")
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Errorf("Probe() took %s after cancel; want prompt return", elapsed)
 	}
 }
 

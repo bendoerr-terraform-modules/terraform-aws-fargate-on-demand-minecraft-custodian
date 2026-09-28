@@ -55,6 +55,9 @@ func (p *Prober) Probe(ctx context.Context) (int, error) {
 			return 0, fmt.Errorf("mcjava: set deadline: %w", err)
 		}
 	}
+	// SetDeadline does not track later cancellation; expire it so a stalled read returns on SIGTERM.
+	stop := context.AfterFunc(ctx, func() { _ = conn.SetDeadline(time.Now()) })
+	defer stop()
 
 	request := HandshakePacket(p.host, p.port)
 	request = append(request, StatusRequestPacket()...)
