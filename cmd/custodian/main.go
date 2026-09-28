@@ -28,7 +28,6 @@ import (
 	"github.com/bendoerr-terraform-modules/terraform-aws-fargate-on-demand-minecraft-custodian/internal/watcher/mcjava"
 )
 
-//nolint:gochecknoglobals // Set at build time via -ldflags "-X main.version=...".
 var version = "dev"
 
 const (

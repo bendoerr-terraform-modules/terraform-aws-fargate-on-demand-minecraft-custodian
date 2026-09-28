@@ -11,9 +11,17 @@ import (
 
 // ECSAPI is the subset of *ecs.Client the custodian uses.
 type ECSAPI interface {
-	UpdateService(ctx context.Context, in *ecs.UpdateServiceInput, optFns ...func(*ecs.Options)) (*ecs.UpdateServiceOutput, error)
+	UpdateService(
+		ctx context.Context,
+		in *ecs.UpdateServiceInput,
+		optFns ...func(*ecs.Options),
+	) (*ecs.UpdateServiceOutput, error)
 	ListTasks(ctx context.Context, in *ecs.ListTasksInput, optFns ...func(*ecs.Options)) (*ecs.ListTasksOutput, error)
-	DescribeTasks(ctx context.Context, in *ecs.DescribeTasksInput, optFns ...func(*ecs.Options)) (*ecs.DescribeTasksOutput, error)
+	DescribeTasks(
+		ctx context.Context,
+		in *ecs.DescribeTasksInput,
+		optFns ...func(*ecs.Options),
+	) (*ecs.DescribeTasksOutput, error)
 }
 
 // Reaper sets the service's desired count to 0.

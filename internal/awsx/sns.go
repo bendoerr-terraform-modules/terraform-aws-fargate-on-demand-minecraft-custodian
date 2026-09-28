@@ -46,7 +46,10 @@ func (n *Notifier) Notify(ctx context.Context, event lifecycle.Event) error {
 	if err != nil {
 		return fmt.Errorf("encode %s event: %w", event, err)
 	}
-	_, err = n.client.Publish(ctx, &sns.PublishInput{TopicArn: aws.String(n.topicARN), Message: aws.String(string(body))})
+	_, err = n.client.Publish(
+		ctx,
+		&sns.PublishInput{TopicArn: aws.String(n.topicARN), Message: aws.String(string(body))},
+	)
 	if err != nil {
 		return fmt.Errorf("publish %s event: %w", event, err)
 	}

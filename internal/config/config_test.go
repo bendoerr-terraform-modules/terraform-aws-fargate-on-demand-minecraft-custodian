@@ -90,7 +90,11 @@ func TestLoadInvalid(t *testing.T) {
 		{"parked ip v6", map[string]string{"CUSTODIAN_DNS_PARKED_IP": "2001:db8::1"}, "CUSTODIAN_DNS_PARKED_IP"},
 		{"watch addr no port", map[string]string{"CUSTODIAN_WATCH_ADDR": "localhost"}, "CUSTODIAN_WATCH_ADDR"},
 		{"watch addr port zero", map[string]string{"CUSTODIAN_WATCH_ADDR": "localhost:0"}, "CUSTODIAN_WATCH_ADDR"},
-		{"watch addr port too big", map[string]string{"CUSTODIAN_WATCH_ADDR": "localhost:70000"}, "CUSTODIAN_WATCH_ADDR"},
+		{
+			"watch addr port too big",
+			map[string]string{"CUSTODIAN_WATCH_ADDR": "localhost:70000"},
+			"CUSTODIAN_WATCH_ADDR",
+		},
 		{"watch addr empty host", map[string]string{"CUSTODIAN_WATCH_ADDR": ":25565"}, "CUSTODIAN_WATCH_ADDR"},
 		{"interval zero", map[string]string{"CUSTODIAN_WATCH_INTERVAL": "0s"}, "CUSTODIAN_WATCH_INTERVAL"},
 		{"interval negative", map[string]string{"CUSTODIAN_WATCH_INTERVAL": "-5s"}, "CUSTODIAN_WATCH_INTERVAL"},

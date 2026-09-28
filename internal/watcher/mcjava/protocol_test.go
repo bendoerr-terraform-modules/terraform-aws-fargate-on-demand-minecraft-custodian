@@ -136,7 +136,7 @@ func TestParseOnline(t *testing.T) {
 		"negative online": `{"players":{"max":20,"online":-1}}`,
 		"invalid json":    `{"players":`,
 	} {
-		if _, err := mcjava.ParseOnline([]byte(js)); err == nil {
+		if _, perr := mcjava.ParseOnline([]byte(js)); perr == nil {
 			t.Errorf("ParseOnline(%s) error = nil; want error", name)
 		}
 	}

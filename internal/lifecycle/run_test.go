@@ -10,23 +10,26 @@ import (
 	"github.com/bendoerr-terraform-modules/terraform-aws-fargate-on-demand-minecraft-custodian/internal/lifecycle"
 )
 
-// runWithin runs m and fails the test if it doesn't return within limit.
-func runWithin(ctx context.Context, t *testing.T, m *lifecycle.Machine, limit time.Duration) int {
+// runTestTimeout bounds how long a test waits for Machine.Run to return.
+const runTestTimeout = 2 * time.Second
+
+// runWithin runs m and fails the test if it doesn't return within runTestTimeout.
+func runWithin(ctx context.Context, t *testing.T, m *lifecycle.Machine) int {
 	t.Helper()
 	done := make(chan int, 1)
 	go func() { done <- m.Run(ctx) }()
 	select {
 	case code := <-done:
 		return code
-	case <-time.After(limit):
-		t.Fatalf("Run did not return within %s", limit)
+	case <-time.After(runTestTimeout):
+		t.Fatalf("Run did not return within %s", runTestTimeout)
 		return -1
 	}
 }
 
 func TestRunIdleShutdown(t *testing.T) {
 	h := newHarness()
-	code := runWithin(t.Context(), t, h.machine(), 2*time.Second)
+	code := runWithin(t.Context(), t, h.machine())
 	if code != lifecycle.ExitOK {
 		t.Errorf("Run() = %d; want ExitOK", code)
 	}
@@ -42,7 +45,7 @@ func TestRunIdleShutdown(t *testing.T) {
 func TestRunNoParkWithoutParkedIP(t *testing.T) {
 	h := newHarness()
 	h.settings.ParkedIP = ""
-	runWithin(t.Context(), t, h.machine(), 2*time.Second)
+	runWithin(t.Context(), t, h.machine())
 	if got := h.rec.only("dns:"); !slices.Equal(got, []string{"dns:" + publicIP}) {
 		t.Errorf("dns calls = %v; want only the publish", got)
 	}
@@ -57,7 +60,7 @@ func TestRunStartOnlyAfterReady(t *testing.T) {
 		}
 		return 0, nil
 	}
-	runWithin(t.Context(), t, h.machine(), 2*time.Second)
+	runWithin(t.Context(), t, h.machine())
 	dns := h.rec.index("dns:" + publicIP)
 	firstOK := h.rec.index("probe:0")
 	start := h.rec.index("notify:start")
@@ -76,7 +79,7 @@ func TestRunActiveInactiveTransitions(t *testing.T) {
 		}
 		return 0, nil
 	}
-	runWithin(t.Context(), t, h.machine(), 2*time.Second)
+	runWithin(t.Context(), t, h.machine())
 	want := []string{"notify:active", "notify:inactive", "notify:active", "notify:inactive"}
 	if got := h.rec.only("notify:active", "notify:inactive"); !slices.Equal(got, want) {
 		t.Errorf("transition events = %v; want %v", got, want)
@@ -92,7 +95,7 @@ func TestRunPlayersOnlineAtReady(t *testing.T) {
 		}
 		return 0, nil
 	}
-	code := runWithin(t.Context(), t, h.machine(), 2*time.Second)
+	code := runWithin(t.Context(), t, h.machine())
 	want := []string{"notify:active", "notify:inactive"}
 	if got := h.rec.only("notify:active", "notify:inactive"); code != lifecycle.ExitOK || !slices.Equal(got, want) {
 		t.Errorf("Run() = %d, events %v; want ExitOK, %v", code, got, want)
@@ -115,7 +118,7 @@ func TestRunProbeErrorsCountAsZero(t *testing.T) {
 			return 0, errors.New("i/o timeout")
 		}
 	}
-	code := runWithin(t.Context(), t, h.machine(), 2*time.Second)
+	code := runWithin(t.Context(), t, h.machine())
 	want := []string{"notify:active", "notify:inactive"}
 	if got := h.rec.only("notify:active", "notify:inactive"); code != lifecycle.ExitOK || !slices.Equal(got, want) {
 		t.Errorf("Run() = %d, events %v; want ExitOK, %v", code, got, want)
@@ -141,7 +144,7 @@ func TestRunIdleClockResetsOnPlayers(t *testing.T) {
 		}
 		return 0, nil
 	}
-	runWithin(t.Context(), t, h.machine(), 2*time.Second)
+	runWithin(t.Context(), t, h.machine())
 	reapAt, ok := h.rec.at("reap")
 	if !ok {
 		t.Fatal("no reap")
@@ -195,7 +198,7 @@ func TestRunTerminationInEachState(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			tt.setup(h, cancel)
-			code := runWithin(ctx, t, h.machine(), 2*time.Second)
+			code := runWithin(ctx, t, h.machine())
 			if code != lifecycle.ExitOK {
 				t.Errorf("Run() = %d; want ExitOK on termination", code)
 			}
@@ -238,7 +241,7 @@ func TestRunFailuresExitError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := newHarness()
 			tt.setup(h)
-			code := runWithin(t.Context(), t, h.machine(), 2*time.Second)
+			code := runWithin(t.Context(), t, h.machine())
 			if code != lifecycle.ExitError {
 				t.Errorf("Run() = %d; want ExitError", code)
 			}
@@ -260,7 +263,7 @@ func TestRunPanicInWatcher(t *testing.T) {
 		}
 		return 0, nil
 	}
-	code := runWithin(t.Context(), t, h.machine(), 2*time.Second)
+	code := runWithin(t.Context(), t, h.machine())
 	if code != lifecycle.ExitError {
 		t.Errorf("Run() = %d; want ExitError after panic", code)
 	}
@@ -282,7 +285,7 @@ func TestRunHealthReadyOnlyAfterGateClears(t *testing.T) {
 			return nil, nil
 		}
 	}
-	code := runWithin(t.Context(), t, h.machine(), 2*time.Second)
+	code := runWithin(t.Context(), t, h.machine())
 	if code != lifecycle.ExitOK {
 		t.Errorf("Run() = %d; want ExitOK", code)
 	}

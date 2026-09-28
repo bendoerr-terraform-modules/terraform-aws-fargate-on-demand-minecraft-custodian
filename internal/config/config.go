@@ -74,7 +74,7 @@ func Load(getenv func(string) string) (Config, error) {
 		Service:       p.required(EnvService),
 		DNSZoneID:     p.required(EnvDNSZoneID),
 		DNSRecord:     p.required(EnvDNSRecord),
-		DNSTTL:        int64(p.intInRange(EnvDNSTTL, defaultDNSTTL, 1, maxDNSTTL)),
+		DNSTTL:        int64(p.intInRange(EnvDNSTTL, defaultDNSTTL, maxDNSTTL)),
 		DNSParkedIP:   p.optionalIPv4(EnvDNSParkedIP),
 		SNSTopicARN:   getenv(EnvSNSTopicARN),
 		WatchAddr:     p.hostPort(EnvWatchAddr, defaultWatchAddr),
@@ -82,8 +82,8 @@ func Load(getenv func(string) string) (Config, error) {
 		IdleTimeout:   p.positiveDuration(EnvIdleTimeout, defaultIdleTimeout),
 		BootTimeout:   p.positiveDuration(EnvBootTimeout, defaultBootTimeout),
 		GateTimeout:   p.positiveDuration(EnvGateTimeout, defaultGateTimeout),
-		ProbeFailWarn: p.intInRange(EnvProbeFailWarn, defaultProbeFailWarn, 1, maxProbeFailWarn),
-		HealthPort:    p.intInRange(EnvHealthPort, defaultHealthPort, 1, maxPort),
+		ProbeFailWarn: p.intInRange(EnvProbeFailWarn, defaultProbeFailWarn, maxProbeFailWarn),
+		HealthPort:    p.intInRange(EnvHealthPort, defaultHealthPort, maxPort),
 		LogLevel:      p.logLevel(EnvLogLevel, slog.LevelInfo),
 	}
 	if cfg.IdleTimeout <= cfg.WatchInterval {
@@ -98,7 +98,7 @@ func Load(getenv func(string) string) (Config, error) {
 // HealthPort reads only the health port, for the `healthcheck` subcommand.
 func HealthPort(getenv func(string) string) (int, error) {
 	p := &parser{getenv: getenv}
-	port := p.intInRange(EnvHealthPort, defaultHealthPort, 1, maxPort)
+	port := p.intInRange(EnvHealthPort, defaultHealthPort, maxPort)
 	return port, p.err()
 }
 
@@ -123,7 +123,9 @@ func (p *parser) required(name string) string {
 	return v
 }
 
-func (p *parser) intInRange(name string, def, lo, hi int) int {
+// intInRange parses an integer between 1 and hi inclusive.
+func (p *parser) intInRange(name string, def, hi int) int {
+	const lo = 1
 	v := p.getenv(name)
 	if v == "" {
 		return def

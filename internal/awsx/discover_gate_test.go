@@ -67,7 +67,8 @@ func TestDiscover(t *testing.T) {
 	if self.TaskARN != selfARN || self.PublicIP != "203.0.113.10" {
 		t.Errorf("Discover() = %+v", self)
 	}
-	if aws.ToString(e.describeIn[0].Cluster) != "shanecraft" || !slices.Equal(e.describeIn[0].Tasks, []string{selfARN}) {
+	if aws.ToString(e.describeIn[0].Cluster) != "shanecraft" ||
+		!slices.Equal(e.describeIn[0].Tasks, []string{selfARN}) {
 		t.Errorf("DescribeTasks input = %+v", e.describeIn[0])
 	}
 	if !slices.Equal(c2.in[0].NetworkInterfaceIds, []string{"eni-123"}) {
@@ -145,7 +146,10 @@ func TestGateNoOtherTasks(t *testing.T) {
 
 func TestGateBlockingStatuses(t *testing.T) {
 	for _, status := range []string{"PROVISIONING", "PENDING", "ACTIVATING", "RUNNING", "DEACTIVATING", "STOPPING"} {
-		e := &fakeECS{list: listing([]string{selfARN}, []string{otherARN}), describe: describeReturning(task(otherARN, status))}
+		e := &fakeECS{
+			list:     listing([]string{selfARN}, []string{otherARN}),
+			describe: describeReturning(task(otherARN, status)),
+		}
 		blocking, err := awsx.NewGate(e, "c", "s").Blocking(t.Context(), selfARN)
 		if err != nil || !slices.Equal(blocking, []string{otherARN}) {
 			t.Errorf("status %s: Blocking() = %v, %v; want [%s]", status, blocking, err, otherARN)
@@ -186,7 +190,9 @@ func TestGateIgnoresVanishedTasks(t *testing.T) {
 	e := &fakeECS{
 		list: listing(nil, []string{otherARN}),
 		describe: func(*ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
-			return &ecs.DescribeTasksOutput{Failures: []ecstypes.Failure{{Arn: aws.String(otherARN), Reason: aws.String("MISSING")}}}, nil
+			return &ecs.DescribeTasksOutput{
+				Failures: []ecstypes.Failure{{Arn: aws.String(otherARN), Reason: aws.String("MISSING")}},
+			}, nil
 		},
 	}
 	blocking, err := awsx.NewGate(e, "c", "s").Blocking(t.Context(), selfARN)

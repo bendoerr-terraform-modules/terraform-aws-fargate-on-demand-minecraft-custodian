@@ -53,7 +53,8 @@ func (s *Server) Handler() http.Handler {
 
 // Listen binds addr (use 127.0.0.1:<port>).
 func (s *Server) Listen(addr string) error {
-	ln, err := net.Listen("tcp", addr)
+	var lc net.ListenConfig
+	ln, err := lc.Listen(context.Background(), "tcp", addr)
 	if err != nil {
 		return fmt.Errorf("health: listen %s: %w", addr, err)
 	}

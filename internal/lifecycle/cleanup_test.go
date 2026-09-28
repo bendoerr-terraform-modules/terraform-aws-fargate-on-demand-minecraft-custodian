@@ -55,17 +55,21 @@ func TestAbortDoesNotParkUnpublishedDNS(t *testing.T) {
 func TestDefaultSettingsMatchSpec(t *testing.T) {
 	s := lifecycle.DefaultSettings()
 	want := lifecycle.Settings{
-		WatchInterval:   30 * time.Second,
-		IdleTimeout:     10 * time.Minute,
-		BootTimeout:     10 * time.Minute,
-		GateTimeout:     3 * time.Minute,
-		GatePoll:        5 * time.Second,
-		PostReapWait:    5 * time.Minute,
-		ProbeFailWarn:   3,
-		DiscoverRetry:   retry.Policy{Initial: time.Second, Max: 15 * time.Second, Deadline: 2 * time.Minute},
-		DNSRetry:        retry.Policy{Initial: time.Second, Max: 15 * time.Second, Deadline: 2 * time.Minute},
-		ReapRetry:       retry.Policy{Initial: time.Second, Max: 10 * time.Second, Deadline: time.Minute},
-		BestEffortRetry: retry.Policy{Initial: 500 * time.Millisecond, Max: 2 * time.Second, Deadline: 10 * time.Second},
+		WatchInterval: 30 * time.Second,
+		IdleTimeout:   10 * time.Minute,
+		BootTimeout:   10 * time.Minute,
+		GateTimeout:   3 * time.Minute,
+		GatePoll:      5 * time.Second,
+		PostReapWait:  5 * time.Minute,
+		ProbeFailWarn: 3,
+		DiscoverRetry: retry.Policy{Initial: time.Second, Max: 15 * time.Second, Deadline: 2 * time.Minute},
+		DNSRetry:      retry.Policy{Initial: time.Second, Max: 15 * time.Second, Deadline: 2 * time.Minute},
+		ReapRetry:     retry.Policy{Initial: time.Second, Max: 10 * time.Second, Deadline: time.Minute},
+		BestEffortRetry: retry.Policy{
+			Initial:  500 * time.Millisecond,
+			Max:      2 * time.Second,
+			Deadline: 10 * time.Second,
+		},
 	}
 	if s != want {
 		t.Errorf("DefaultSettings() =\n%+v\nwant\n%+v", s, want)

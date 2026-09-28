@@ -69,7 +69,11 @@ type fakeSNS struct {
 	err error
 }
 
-func (f *fakeSNS) Publish(_ context.Context, in *sns.PublishInput, _ ...func(*sns.Options)) (*sns.PublishOutput, error) {
+func (f *fakeSNS) Publish(
+	_ context.Context,
+	in *sns.PublishInput,
+	_ ...func(*sns.Options),
+) (*sns.PublishOutput, error) {
 	f.in = append(f.in, in)
 	return &sns.PublishOutput{}, f.err
 }

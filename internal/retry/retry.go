@@ -8,6 +8,9 @@ import (
 	"time"
 )
 
+// backoffMultiplier is the factor the delay is scaled by after each failed attempt.
+const backoffMultiplier = 2
+
 // Policy bounds a retried operation.
 type Policy struct {
 	Initial  time.Duration // wait after the first failure
@@ -33,6 +36,6 @@ func Do(ctx context.Context, p Policy, fn func(context.Context) error) error {
 			return fmt.Errorf("gave up after %d attempts: %w", attempt, errors.Join(err, ctx.Err()))
 		case <-timer.C:
 		}
-		delay = min(delay*2, p.Max)
+		delay = min(delay*backoffMultiplier, p.Max)
 	}
 }
