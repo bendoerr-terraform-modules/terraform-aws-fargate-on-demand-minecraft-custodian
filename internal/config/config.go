@@ -61,6 +61,8 @@ type Config struct {
 	IdleTimeout   time.Duration
 	BootTimeout   time.Duration
 	GateTimeout   time.Duration
+	// ProbeFailWarn only selects the log level: after this many consecutive probe failures they log at error.
+	// It is not a failure tolerance; every failed probe already counts as 0 players.
 	ProbeFailWarn int
 	HealthPort    int
 	LogLevel      slog.Level
