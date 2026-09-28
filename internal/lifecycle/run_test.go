@@ -154,6 +154,43 @@ func TestRunIdleClockResetsOnPlayers(t *testing.T) {
 	}
 }
 
+// Long sessions must never reap while players are online, no matter how long the session runs.
+func TestRunNeverReapsDuringLongSession(t *testing.T) {
+	h := newHarness()
+	var firstWatch, lastPositive time.Time
+	h.watcher.fn = func(call int) (int, error) {
+		if call == 1 {
+			return 0, nil // ready
+		}
+		if firstWatch.IsZero() {
+			firstWatch = time.Now()
+		}
+		if time.Since(firstWatch) < 5*h.settings.IdleTimeout {
+			lastPositive = time.Now()
+			return 1, nil
+		}
+		return 0, nil
+	}
+	code := runWithin(t.Context(), t, h.machine())
+	if code != lifecycle.ExitOK {
+		t.Errorf("Run() = %d; want ExitOK", code)
+	}
+	reapAt, ok := h.rec.at("reap")
+	if !ok {
+		t.Fatal("no reap")
+	}
+	if elapsed := reapAt.Sub(firstWatch); elapsed < 5*h.settings.IdleTimeout {
+		t.Errorf("reaped %s after the first watch call; want at least %s", elapsed, 5*h.settings.IdleTimeout)
+	}
+	if idle := reapAt.Sub(lastPositive); idle < h.settings.IdleTimeout {
+		t.Errorf("reaped %s after the last positive reading; want at least %s", idle, h.settings.IdleTimeout)
+	}
+	want := []string{"notify:active", "notify:inactive"}
+	if got := h.rec.only("notify:active", "notify:inactive"); !slices.Equal(got, want) {
+		t.Errorf("transition events = %v; want %v", got, want)
+	}
+}
+
 func TestRunTerminationInEachState(t *testing.T) {
 	interrupted := errors.New("interrupted")
 	tests := []struct {
