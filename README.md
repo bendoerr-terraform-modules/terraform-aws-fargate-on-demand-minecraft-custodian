@@ -13,7 +13,7 @@ A sidecar container for the `terraform-aws-fargate-on-demand` ECS task that runs
                     cleanup (once): reap → park DNS → emit stop
 ```
 
-1. **Boot.** Parse and validate config. On invalid config: log and exit 1. (Cluster/service may be unknown, so no reap is possible; the module-side cost alarm is the backstop.)
+1. **Boot.** Parse and validate config. If config fails validation: log and exit 1. (Cluster/service may be unknown, so no reap is possible; the module-side cost alarm is the backstop.)
 1. **Discover.** Read `${ECS_CONTAINER_METADATA_URI_V4}/task` for the own task ARN (metadata does not carry the ENI ID). `ecs:DescribeTasks` on the own task → ENI ID from the `ElasticNetworkInterface` attachment's `networkInterfaceId` detail (as the old `dns-updater` did). `ec2:DescribeNetworkInterfaces` → public IPv4. Retry with backoff, deadline 2 min.
 1. **Gate (exclusive start).** List the service's tasks with `ecs:ListTasks` (two calls: `desiredStatus=RUNNING` and `desiredStatus=STOPPED`, since a stopping task already has desired status `STOPPED`), then `ecs:DescribeTasks`. Wait while any task *other than this one* is still blocking. Poll every 5 s, deadline `CUSTODIAN_GATE_TIMEOUT`. While gated, the health endpoint reports unhealthy, so the Minecraft container (which `dependsOn` HEALTHY) does not start. When clear, mark healthy.
    - Blocking `lastStatus` values: `PROVISIONING`, `PENDING`, `ACTIVATING`, `RUNNING`, `DEACTIVATING`, `STOPPING`.
@@ -30,7 +30,7 @@ A sidecar container for the `terraform-aws-fargate-on-demand` ECS task that runs
 
 ### Cleanup (runs at most once)
 
-Triggered by: idle shutdown, SIGTERM/SIGINT in any state, any error after config is valid, boot timeout, gate timeout, or a recovered panic in `Run`. Implemented as a single `sync.Once`-guarded function. SIGTERM/SIGINT cancel the `context.Context` passed to `Run` (via `signal.NotifyContext` in `main`); `Run` itself calls cleanup on every one of its exit paths, including from its own recovered-panic handler, whether that exit was a normal idle shutdown, a cancelled context, or a failure. `main` calls `Abort` — which runs the same cleanup — only for setup failures that happen before `Run` starts (e.g. an invalid watch address or a health-endpoint listen failure). Cleanup is never invoked concurrently.
+Triggered by: idle shutdown, SIGTERM/SIGINT in any state, any error after config is valid, boot timeout, gate timeout, or a recovered panic in `Run`. Implemented as a single `sync.Once`-guarded function. SIGTERM/SIGINT cancel the `context.Context` passed to `Run` (via `signal.NotifyContext` in `main`); `Run` itself calls cleanup on every one of its exit paths, including from its own recovered-panic handler, whether that exit was a normal idle shutdown, a cancelled context, or a failure. `main` calls `Abort` — which runs the same cleanup — only for setup failures that happen before `Run` starts (e.g. a malformed watch address or a health-endpoint listen failure). Cleanup is never invoked concurrently.
 
 Order (cost first — a Spot SIGTERM leaves ≤120 s):
 
@@ -81,7 +81,7 @@ Task role permissions:
 
 - Custodian container: `essential = true`, `healthCheck = { command = ["CMD", "/custodian", "healthcheck"], interval = 5, timeout = 2, startPeriod = 240, retries = 3 }`, `startTimeout = 120` (the Fargate maximum for an explicit value).
   - `startPeriod` must exceed `CUSTODIAN_GATE_TIMEOUT` (default 3 m) plus discovery time: failures during the start period don't count, so a gated custodian isn't marked UNHEALTHY (which would stop the essential container's task). The first passing check ends the start period and marks the container HEALTHY. ECS caps `startPeriod` at 300 s, so `CUSTODIAN_GATE_TIMEOUT` must stay ≤ ~4 m; config validation enforces `GATE_TIMEOUT ≤ 4m`.
-  - `startTimeout` bounds how long the Minecraft container's `dependsOn HEALTHY` condition (below) waits for the custodian to report healthy; if left unset, ECS defaults it to ~3 min. So the effective gate wait is ≈ `min(startTimeout, CUSTODIAN_GATE_TIMEOUT)`. If that bound is exceeded before the custodian clears the gate, the Minecraft container never starts, the task stops, and the custodian's own SIGTERM path reaps the service — safe, just a stalled launch rather than two servers on one world.
+  - `startTimeout` bounds how long the Minecraft container's `dependsOn HEALTHY` condition (below) waits for the custodian to report healthy; if left unset, ECS defaults it to ~3 min. So the effective gate wait is ≈ `min(startTimeout, CUSTODIAN_GATE_TIMEOUT)`. If that bound is exceeded before the custodian clears the gate, the Minecraft container never starts, the task stops, and the custodian's own SIGTERM path reaps the service — safe: the launch stalls, but two servers never share one world.
 - Minecraft container: `dependsOn = [{ containerName = "custodian", condition = "HEALTHY" }]`.
 - Both containers: `stopTimeout = 120` (Fargate maximum), so Paper's save and the custodian's cleanup both fit.
 - ECS service: `deployment_maximum_percent = 100`, `deployment_minimum_healthy_percent = 0` (a deployment must never run two tasks).

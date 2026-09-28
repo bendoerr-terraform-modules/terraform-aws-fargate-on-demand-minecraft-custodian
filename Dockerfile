@@ -22,5 +22,6 @@ LABEL org.opencontainers.image.authors="https://github.com/bendoerr"
 LABEL org.opencontainers.image.licenses=MIT
 
 COPY --from=builder /out/custodian /custodian
-USER nonroot:nonroot
+# 65532 is distroless's nonroot user; numeric so the runtime needn't resolve it (DL3066).
+USER 65532:65532
 ENTRYPOINT ["/custodian"]

@@ -75,6 +75,7 @@ jobs:
           reporter: github-pr-review
           fail_level: none
           filter_mode: file
+          ignore: importas
           exclude: |
             ./.git/*
             ./.cache/*
