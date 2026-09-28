@@ -158,11 +158,12 @@ func (f *fakeReaper) Reap(context.Context) error {
 
 type fakeNotifier struct {
 	rec *recorder
+	err error // returned from every Notify when set
 }
 
 func (f *fakeNotifier) Notify(_ context.Context, e lifecycle.Event) error {
 	f.rec.add("notify:" + string(e))
-	return nil
+	return f.err
 }
 
 type fakeWatcher struct {

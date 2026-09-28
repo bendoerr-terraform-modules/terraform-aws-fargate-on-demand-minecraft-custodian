@@ -351,3 +351,20 @@ func TestRunIdentityMismatchRefusesToReap(t *testing.T) {
 		t.Errorf("calls = %v; want %v (no retry, no reap, no park, no stop)", got, want)
 	}
 }
+
+// Notifications are best-effort: a failing notifier is retried, then ignored; the lifecycle still reaps.
+func TestRunNotifierFailureIsBestEffort(t *testing.T) {
+	h := newHarness()
+	h.notifier.err = errors.New("sns throttled")
+	code := runWithin(t.Context(), t, h.machine())
+	if code != lifecycle.ExitOK {
+		t.Errorf("Run() = %d; want ExitOK", code)
+	}
+	if h.rec.count("notify:start") < 2 || h.rec.count("notify:stop") < 2 {
+		t.Errorf("start/stop attempts = %d/%d; want each retried",
+			h.rec.count("notify:start"), h.rec.count("notify:stop"))
+	}
+	if h.rec.count("reap") != 1 {
+		t.Errorf("reap count = %d; want 1", h.rec.count("reap"))
+	}
+}
