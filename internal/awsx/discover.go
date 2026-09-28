@@ -3,6 +3,7 @@ package awsx
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -13,8 +14,9 @@ import (
 )
 
 const (
-	attachmentTypeENI = "ElasticNetworkInterface"
-	detailENIID       = "networkInterfaceId"
+	attachmentTypeENI  = "ElasticNetworkInterface"
+	detailENIID        = "networkInterfaceId"
+	serviceGroupPrefix = "service:"
 )
 
 // TaskMetadata reads the running task's metadata.
@@ -29,17 +31,19 @@ type EC2API interface {
 	) (*ec2.DescribeNetworkInterfacesOutput, error)
 }
 
-// Discoverer resolves the running task's ARN and public IP (spec §4 step 2).
+// Discoverer resolves the running task's ARN and public IP (spec §4 step 2), and verifies that the
+// configured cluster and service are the ones actually running this task.
 type Discoverer struct {
 	meta    TaskMetadata
 	ecs     ECSAPI
 	ec2     EC2API
 	cluster string
+	service string
 }
 
-// NewDiscoverer returns a Discoverer.
-func NewDiscoverer(meta TaskMetadata, ecsClient ECSAPI, ec2Client EC2API, cluster string) *Discoverer {
-	return &Discoverer{meta: meta, ecs: ecsClient, ec2: ec2Client, cluster: cluster}
+// NewDiscoverer returns a Discoverer for the configured cluster (name or ARN) and service name.
+func NewDiscoverer(meta TaskMetadata, ecsClient ECSAPI, ec2Client EC2API, cluster, service string) *Discoverer {
+	return &Discoverer{meta: meta, ecs: ecsClient, ec2: ec2Client, cluster: cluster, service: service}
 }
 
 // Discover returns the task ARN and its public IPv4.
@@ -48,7 +52,11 @@ func (d *Discoverer) Discover(ctx context.Context) (lifecycle.Self, error) {
 	if err != nil {
 		return lifecycle.Self{}, fmt.Errorf("discover: %w", err)
 	}
-	eni, err := d.eniID(ctx, task.TaskARN)
+	if !sameCluster(task.Cluster, d.cluster) {
+		return lifecycle.Self{}, fmt.Errorf("discover: %w: task runs in cluster %q, configured %q",
+			lifecycle.ErrIdentityMismatch, task.Cluster, d.cluster)
+	}
+	eni, err := d.eniID(ctx, task)
 	if err != nil {
 		return lifecycle.Self{}, err
 	}
@@ -59,16 +67,27 @@ func (d *Discoverer) Discover(ctx context.Context) (lifecycle.Self, error) {
 	return lifecycle.Self{TaskARN: task.TaskARN, PublicIP: ip}, nil
 }
 
-func (d *Discoverer) eniID(ctx context.Context, taskARN string) (string, error) {
+// sameCluster reports whether configured (a cluster name or ARN) names the metadata cluster ARN.
+func sameCluster(metadataARN, configured string) bool {
+	return metadataARN == configured || strings.HasSuffix(metadataARN, ":cluster/"+configured)
+}
+
+// eniID describes the task in the cluster it actually runs in, checks that it belongs to the configured
+// service, and returns its ENI ID.
+func (d *Discoverer) eniID(ctx context.Context, task platform.Task) (string, error) {
 	out, err := d.ecs.DescribeTasks(ctx, &ecs.DescribeTasksInput{
-		Cluster: aws.String(d.cluster),
-		Tasks:   []string{taskARN},
+		Cluster: aws.String(task.Cluster),
+		Tasks:   []string{task.TaskARN},
 	})
 	if err != nil {
-		return "", fmt.Errorf("discover: describe task %s: %w", taskARN, err)
+		return "", fmt.Errorf("discover: describe task %s: %w", task.TaskARN, err)
 	}
 	if len(out.Tasks) == 0 {
-		return "", fmt.Errorf("discover: task %s not found in cluster %s", taskARN, d.cluster)
+		return "", fmt.Errorf("discover: task %s not found in cluster %s", task.TaskARN, task.Cluster)
+	}
+	if group := aws.ToString(out.Tasks[0].Group); group != serviceGroupPrefix+d.service {
+		return "", fmt.Errorf("discover: %w: task group is %q, configured service %q",
+			lifecycle.ErrIdentityMismatch, group, d.service)
 	}
 	for _, att := range out.Tasks[0].Attachments {
 		if aws.ToString(att.Type) != attachmentTypeENI {
@@ -80,7 +99,7 @@ func (d *Discoverer) eniID(ctx context.Context, taskARN string) (string, error) 
 			}
 		}
 	}
-	return "", fmt.Errorf("discover: task %s has no network interface attachment", taskARN)
+	return "", fmt.Errorf("discover: task %s has no network interface attachment", task.TaskARN)
 }
 
 func (d *Discoverer) publicIP(ctx context.Context, eni string) (string, error) {

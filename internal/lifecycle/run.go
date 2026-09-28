@@ -74,6 +74,10 @@ func (m *Machine) discover(ctx context.Context) (Self, error) {
 	var self Self
 	attempt := func(callCtx context.Context) error {
 		found, err := m.deps.Discoverer.Discover(callCtx)
+		if errors.Is(err, ErrIdentityMismatch) {
+			m.foreign = true
+			return retry.Permanent(err)
+		}
 		if err != nil {
 			m.log.WarnContext(callCtx, "discover attempt failed", slog.Any("error", err))
 			return err

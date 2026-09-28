@@ -3,6 +3,7 @@ package lifecycle
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"sync"
 	"time"
@@ -26,6 +27,10 @@ const (
 	ExitOK    = 0
 	ExitError = 1
 )
+
+// ErrIdentityMismatch reports that the configured cluster/service is not the one running this task.
+// Cleanup then refuses to reap, park, or notify: those would act on a service this task does not belong to.
+var ErrIdentityMismatch = errors.New("configured cluster/service does not own this task")
 
 // Self identifies the running task.
 type Self struct {
@@ -141,6 +146,8 @@ type Machine struct {
 	log       *slog.Logger
 	cleanOnce sync.Once
 	published bool
+	// foreign is set when discover proves the configured cluster/service is not this task's.
+	foreign bool
 }
 
 // New builds a Machine. A nil Logger discards logs.
@@ -164,6 +171,12 @@ func (m *Machine) cleanup(reason string) {
 		ctx := context.Background()
 		m.log.InfoContext(ctx, "cleanup starting", slog.String("reason", reason))
 		m.deps.Health.SetReady(false)
+
+		if m.foreign {
+			m.log.ErrorContext(ctx, "refusing to reap: the configured cluster/service does not own this task; "+
+				"fix CUSTODIAN_CLUSTER/CUSTODIAN_SERVICE")
+			return
+		}
 
 		if err := retry.Do(ctx, m.settings.ReapRetry, m.deps.Reaper.Reap); err != nil {
 			m.log.ErrorContext(ctx, "reap failed; the service may keep running", slog.Any("error", err))

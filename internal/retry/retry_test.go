@@ -84,3 +84,14 @@ func TestDoGivesFnADeadline(t *testing.T) {
 		t.Fatalf("Do() error = %v", err)
 	}
 }
+
+func TestDoStopsOnPermanentError(t *testing.T) {
+	calls := 0
+	err := retry.Do(t.Context(), policy(time.Minute), func(context.Context) error {
+		calls++
+		return retry.Permanent(errBoom)
+	})
+	if !errors.Is(err, errBoom) || calls != 1 {
+		t.Fatalf("Do() = %v after %d calls; want errBoom after 1", err, calls)
+	}
+}

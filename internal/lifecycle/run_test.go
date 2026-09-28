@@ -3,6 +3,7 @@ package lifecycle_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -331,5 +332,22 @@ func TestRunHealthReadyOnlyAfterGateClears(t *testing.T) {
 	}
 	if h.rec.index("health:true") < h.rec.index("gate:clear") {
 		t.Errorf("health became ready before the gate cleared: %v", h.rec.names("probe:"))
+	}
+}
+
+// A config that names a different cluster/service must never be reaped: it is not this task's.
+func TestRunIdentityMismatchRefusesToReap(t *testing.T) {
+	h := newHarness()
+	h.discoverer.fn = func() (lifecycle.Self, error) {
+		return lifecycle.Self{}, fmt.Errorf("%w: task service minecraft, configured foundry",
+			lifecycle.ErrIdentityMismatch)
+	}
+	code := runWithin(t.Context(), t, h.machine())
+	if code != lifecycle.ExitError {
+		t.Errorf("Run() = %d; want ExitError", code)
+	}
+	want := []string{"discover", "health:false"}
+	if got := h.rec.names(); !slices.Equal(got, want) {
+		t.Errorf("calls = %v; want %v (no retry, no reap, no park, no stop)", got, want)
 	}
 }

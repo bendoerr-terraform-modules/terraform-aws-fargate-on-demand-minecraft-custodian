@@ -93,7 +93,7 @@ func serve(ctx context.Context, getenv func(string) string, out io.Writer) int {
 	machine := lifecycle.New(lifecycle.Deps{
 		Discoverer: awsx.NewDiscoverer(
 			platform.New(getenv("ECS_CONTAINER_METADATA_URI_V4"), &http.Client{Timeout: metadataTimeout}),
-			ecsClient, ec2.NewFromConfig(awsCfg), cfg.Cluster),
+			ecsClient, ec2.NewFromConfig(awsCfg), cfg.Cluster, cfg.Service),
 		Gate:     awsx.NewGate(ecsClient, cfg.Cluster, cfg.Service),
 		DNS:      awsx.NewDNS(route53.NewFromConfig(awsCfg), cfg.DNSZoneID, cfg.DNSRecord, cfg.DNSTTL),
 		Reaper:   awsx.NewReaper(ecsClient, cfg.Cluster, cfg.Service),

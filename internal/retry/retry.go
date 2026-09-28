@@ -18,7 +18,18 @@ type Policy struct {
 	Deadline time.Duration // total time allowed, including attempts
 }
 
-// Do calls fn until it succeeds, the deadline passes, or ctx is cancelled.
+// permanentError marks an error that retrying cannot fix.
+type permanentError struct{ err error }
+
+func (e permanentError) Error() string { return e.err.Error() }
+func (e permanentError) Unwrap() error { return e.err }
+
+// Permanent wraps err so Do returns it immediately instead of retrying.
+func Permanent(err error) error {
+	return permanentError{err: err}
+}
+
+// Do calls fn until it succeeds, fn returns a Permanent error, the deadline passes, or ctx is cancelled.
 func Do(ctx context.Context, p Policy, fn func(context.Context) error) error {
 	ctx, cancel := context.WithTimeout(ctx, p.Deadline)
 	defer cancel()
@@ -28,6 +39,10 @@ func Do(ctx context.Context, p Policy, fn func(context.Context) error) error {
 		err := fn(ctx)
 		if err == nil {
 			return nil
+		}
+		var perm permanentError
+		if errors.As(err, &perm) {
+			return perm.err
 		}
 		timer := time.NewTimer(delay)
 		select {

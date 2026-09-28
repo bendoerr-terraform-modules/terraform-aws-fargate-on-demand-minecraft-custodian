@@ -14,13 +14,20 @@ import (
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	"github.com/bendoerr-terraform-modules/terraform-aws-fargate-on-demand-minecraft-custodian/internal/awsx"
+	"github.com/bendoerr-terraform-modules/terraform-aws-fargate-on-demand-minecraft-custodian/internal/lifecycle"
 	"github.com/bendoerr-terraform-modules/terraform-aws-fargate-on-demand-minecraft-custodian/internal/platform"
 )
 
 const (
-	selfARN  = "arn:aws:ecs:us-east-1:1:task/shanecraft/self"
-	otherARN = "arn:aws:ecs:us-east-1:1:task/shanecraft/other"
+	selfARN    = "arn:aws:ecs:us-east-1:1:task/shanecraft/self"
+	otherARN   = "arn:aws:ecs:us-east-1:1:task/shanecraft/other"
+	clusterARN = "arn:aws:ecs:us-east-1:1:cluster/shanecraft"
 )
+
+// selfMeta returns this task's metadata: its ARN and the cluster it actually runs in.
+func selfMeta() fakeMeta {
+	return fakeMeta{task: platform.Task{TaskARN: selfARN, Cluster: clusterARN}}
+}
 
 type fakeMeta struct {
 	task platform.Task
@@ -32,6 +39,7 @@ func (f fakeMeta) Task(context.Context) (platform.Task, error) { return f.task, 
 func taskWithENI(eni string) ecstypes.Task {
 	return ecstypes.Task{
 		TaskArn: aws.String(selfARN),
+		Group:   aws.String("service:minecraft"),
 		Attachments: []ecstypes.Attachment{{
 			Type: aws.String("ElasticNetworkInterface"),
 			Details: []ecstypes.KeyValuePair{
@@ -59,7 +67,7 @@ func describeReturning(tasks ...ecstypes.Task) func(*ecs.DescribeTasksInput) (*e
 func TestDiscover(t *testing.T) {
 	e := &fakeECS{describe: describeReturning(taskWithENI("eni-123"))}
 	c2 := &fakeEC2{out: eniWithIP("203.0.113.10")}
-	d := awsx.NewDiscoverer(fakeMeta{task: platform.Task{TaskARN: selfARN}}, e, c2, "shanecraft")
+	d := awsx.NewDiscoverer(selfMeta(), e, c2, "shanecraft", "minecraft")
 	self, err := d.Discover(t.Context())
 	if err != nil {
 		t.Fatalf("Discover() error = %v", err)
@@ -67,7 +75,7 @@ func TestDiscover(t *testing.T) {
 	if self.TaskARN != selfARN || self.PublicIP != "203.0.113.10" {
 		t.Errorf("Discover() = %+v", self)
 	}
-	if aws.ToString(e.describeIn[0].Cluster) != "shanecraft" ||
+	if aws.ToString(e.describeIn[0].Cluster) != clusterARN ||
 		!slices.Equal(e.describeIn[0].Tasks, []string{selfARN}) {
 		t.Errorf("DescribeTasks input = %+v", e.describeIn[0])
 	}
@@ -77,7 +85,7 @@ func TestDiscover(t *testing.T) {
 }
 
 func TestDiscoverErrors(t *testing.T) {
-	noENI := ecstypes.Task{TaskArn: aws.String(selfARN)}
+	noENI := ecstypes.Task{TaskArn: aws.String(selfARN), Group: aws.String("service:minecraft")}
 	tests := []struct {
 		name    string
 		meta    fakeMeta
@@ -87,25 +95,56 @@ func TestDiscoverErrors(t *testing.T) {
 	}{
 		{"metadata fails", fakeMeta{err: errors.New("no endpoint")},
 			&fakeECS{}, &fakeEC2{}, "no endpoint"},
-		{"task not found", fakeMeta{task: platform.Task{TaskARN: selfARN}},
+		{"task not found", selfMeta(),
 			&fakeECS{describe: describeReturning()}, &fakeEC2{}, "not found"},
-		{"no eni attachment", fakeMeta{task: platform.Task{TaskARN: selfARN}},
+		{"no eni attachment", selfMeta(),
 			&fakeECS{describe: describeReturning(noENI)}, &fakeEC2{}, "network interface"},
-		{"no public ip", fakeMeta{task: platform.Task{TaskARN: selfARN}},
+		{"no public ip", selfMeta(),
 			&fakeECS{describe: describeReturning(taskWithENI("eni-1"))}, &fakeEC2{out: eniWithIP("")},
 			"assign_public_ip"},
-		{"ec2 fails", fakeMeta{task: platform.Task{TaskARN: selfARN}},
+		{"ec2 fails", selfMeta(),
 			&fakeECS{describe: describeReturning(taskWithENI("eni-1"))}, &fakeEC2{err: errors.New("denied")},
 			"denied"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := awsx.NewDiscoverer(tt.meta, tt.ecs, tt.ec2, "shanecraft").Discover(t.Context())
+			_, err := awsx.NewDiscoverer(tt.meta, tt.ecs, tt.ec2, "shanecraft", "minecraft").Discover(t.Context())
 			if err == nil || !strings.Contains(err.Error(), tt.wantMsg) {
 				t.Errorf("Discover() error = %v; want it to mention %q", err, tt.wantMsg)
 			}
 		})
 	}
+}
+
+func TestDiscoverAcceptsClusterByNameOrARN(t *testing.T) {
+	for _, cluster := range []string{"shanecraft", clusterARN} {
+		e := &fakeECS{describe: describeReturning(taskWithENI("eni-123"))}
+		d := awsx.NewDiscoverer(selfMeta(), e, &fakeEC2{out: eniWithIP("203.0.113.10")}, cluster, "minecraft")
+		if _, err := d.Discover(t.Context()); err != nil {
+			t.Errorf("cluster %q: Discover() error = %v", cluster, err)
+		}
+	}
+}
+
+// Review blocker: config naming another cluster or service must be detected, never reaped.
+func TestDiscoverIdentityMismatch(t *testing.T) {
+	t.Run("cluster", func(t *testing.T) {
+		e := &fakeECS{describe: describeReturning(taskWithENI("eni-123"))}
+		_, err := awsx.NewDiscoverer(selfMeta(), e, &fakeEC2{}, "other-cluster", "minecraft").Discover(t.Context())
+		if !errors.Is(err, lifecycle.ErrIdentityMismatch) {
+			t.Fatalf("Discover() error = %v; want ErrIdentityMismatch", err)
+		}
+		if len(e.describeIn) != 0 {
+			t.Errorf("DescribeTasks called %d times; want 0 once the cluster is known to be wrong", len(e.describeIn))
+		}
+	})
+	t.Run("service", func(t *testing.T) {
+		e := &fakeECS{describe: describeReturning(taskWithENI("eni-123"))}
+		_, err := awsx.NewDiscoverer(selfMeta(), e, &fakeEC2{}, "shanecraft", "foundry").Discover(t.Context())
+		if !errors.Is(err, lifecycle.ErrIdentityMismatch) {
+			t.Fatalf("Discover() error = %v; want ErrIdentityMismatch", err)
+		}
+	})
 }
 
 func task(arn, lastStatus string) ecstypes.Task {
