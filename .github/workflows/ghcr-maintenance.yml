@@ -18,7 +18,8 @@ jobs:
     steps:
       - name: Delete PR Image
         uses: bots-house/ghcr-delete-image-action@3827559c68cb4dcdf54d813ea9853be6d468d3a4 # v1.1.0
-        if: github.event_name == 'pull_request'
+        # Same condition as the publish step in docker.yml; unpublished PRs have no image to delete.
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]'
         with:
           owner: bendoerr-terraform-modules
           name: terraform-aws-fargate-on-demand-minecraft-custodian
