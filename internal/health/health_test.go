@@ -55,3 +55,9 @@ func TestCheckUnreachable(t *testing.T) {
 		t.Error("Check(unreachable) = nil; want error")
 	}
 }
+
+func TestServeWithoutListenReturnsError(t *testing.T) {
+	if err := health.New().Serve(); err == nil {
+		t.Error("Serve() before Listen() = nil; want error")
+	}
+}

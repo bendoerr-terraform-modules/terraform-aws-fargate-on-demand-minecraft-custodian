@@ -72,6 +72,9 @@ func (s *Server) Addr() string {
 
 // Serve serves until Close; it returns nil after Close.
 func (s *Server) Serve() error {
+	if s.ln == nil {
+		return errors.New("health: Serve called before Listen")
+	}
 	if err := s.srv.Serve(s.ln); !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("health: serve: %w", err)
 	}
