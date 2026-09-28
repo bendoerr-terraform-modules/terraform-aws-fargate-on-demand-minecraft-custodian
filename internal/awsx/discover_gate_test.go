@@ -201,6 +201,22 @@ func TestGateIgnoresVanishedTasks(t *testing.T) {
 	}
 }
 
+// Review Focus: a DescribeTasks failure that isn't MISSING must fail closed (retry), not be
+// treated as if the task were gone.
+func TestGateFailsClosedOnNonMissingFailure(t *testing.T) {
+	e := &fakeECS{
+		list: listing(nil, []string{otherARN}),
+		describe: func(*ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
+			return &ecs.DescribeTasksOutput{
+				Failures: []ecstypes.Failure{{Arn: aws.String(otherARN), Reason: aws.String("ACCESS_DENIED")}},
+			}, nil
+		},
+	}
+	if _, err := awsx.NewGate(e, "c", "s").Blocking(t.Context(), selfARN); err == nil {
+		t.Error("Blocking() error = nil; want an error for a non-MISSING DescribeTasks failure")
+	}
+}
+
 func TestGateErrors(t *testing.T) {
 	boom := errors.New("throttled")
 	listFails := &fakeECS{list: func(*ecs.ListTasksInput) (*ecs.ListTasksOutput, error) { return nil, boom }}

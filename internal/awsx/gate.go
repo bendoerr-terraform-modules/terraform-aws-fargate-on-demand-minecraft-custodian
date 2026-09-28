@@ -55,6 +55,14 @@ func (g *Gate) Blocking(ctx context.Context, selfTaskARN string) ([]string, erro
 		if err != nil {
 			return nil, fmt.Errorf("gate: describe tasks: %w", err)
 		}
+		for _, f := range out.Failures {
+			// MISSING means the task is simply gone (not blocking); any other reason
+			// (e.g. throttling, access denied) must fail closed so the caller retries
+			// instead of treating a possibly-still-running task as vanished.
+			if aws.ToString(f.Reason) != "MISSING" {
+				return nil, fmt.Errorf("gate: describe task %s: %s", aws.ToString(f.Arn), aws.ToString(f.Reason))
+			}
+		}
 		for _, t := range out.Tasks {
 			if holdsWorld(aws.ToString(t.LastStatus)) {
 				blocking = append(blocking, aws.ToString(t.TaskArn))
