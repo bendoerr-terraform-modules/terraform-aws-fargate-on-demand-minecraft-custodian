@@ -49,6 +49,10 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # Compile first so probing starts immediately after Paper does; the test requires observing boot.
+      - name: Build integration test
+        run: go test -c -tags integration -o mcjava.test ./internal/watcher/mcjava/
+
       - name: Start Paper
         run: >-
           docker run -d --name paper -p 25565:25565
@@ -58,7 +62,7 @@ jobs:
       - name: Probe Paper
         env:
           CUSTODIAN_IT_MC_ADDR: 127.0.0.1:25565
-        run: go test -tags integration -run TestProbeAgainstPaper -v -timeout 15m ./internal/watcher/mcjava/
+        run: ./mcjava.test -test.run TestProbeAgainstPaper -test.v -test.timeout 15m
 
       - name: Paper logs
         if: failure()

@@ -49,8 +49,10 @@ func TestDoGivesUpAtDeadline(t *testing.T) {
 	if !errors.Is(err, errBoom) || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("Do() error = %v; want it to wrap errBoom and context.DeadlineExceeded", err)
 	}
-	if calls < 3 {
-		t.Errorf("calls = %d; want at least 3 attempts within the deadline", calls)
+	// Retry count is covered by TestDoRetriesUntilSuccess; here only an attempt is guaranteed,
+	// since a paused runner can legitimately exhaust the deadline after one call.
+	if calls < 1 {
+		t.Errorf("calls = %d; want at least one attempt", calls)
 	}
 }
 
