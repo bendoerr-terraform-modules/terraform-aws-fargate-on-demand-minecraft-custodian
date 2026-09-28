@@ -4,7 +4,7 @@ A sidecar container for the `terraform-aws-fargate-on-demand` ECS task that runs
 
 ## How it works
 
-```
+```text
  boot ─► discover ─► gate ─► publish DNS ─► await ready ─► emit start ─► watch ─► shutdown
    │        │          │          │              │                          │         │
    └────────┴──────────┴──────────┴──────────────┴──── error / SIGTERM ─────┴─────────┘
@@ -14,19 +14,19 @@ A sidecar container for the `terraform-aws-fargate-on-demand` ECS task that runs
 ```
 
 1. **Boot.** Parse and validate config. On invalid config: log and exit 1. (Cluster/service may be unknown, so no reap is possible; the module-side cost alarm is the backstop.)
-2. **Discover.** Read `${ECS_CONTAINER_METADATA_URI_V4}/task` for the own task ARN (metadata does not carry the ENI ID). `ecs:DescribeTasks` on the own task → ENI ID from the `ElasticNetworkInterface` attachment's `networkInterfaceId` detail (as the old `dns-updater` did). `ec2:DescribeNetworkInterfaces` → public IPv4. Retry with backoff, deadline 2 min.
-3. **Gate (exclusive start).** List the service's tasks with `ecs:ListTasks` (two calls: `desiredStatus=RUNNING` and `desiredStatus=STOPPED`, since a stopping task already has desired status `STOPPED`), then `ecs:DescribeTasks`. Wait while any task *other than this one* is still blocking. Poll every 5 s, deadline `CUSTODIAN_GATE_TIMEOUT`. While gated, the health endpoint reports unhealthy, so the Minecraft container (which `dependsOn` HEALTHY) does not start. When clear, mark healthy.
+1. **Discover.** Read `${ECS_CONTAINER_METADATA_URI_V4}/task` for the own task ARN (metadata does not carry the ENI ID). `ecs:DescribeTasks` on the own task → ENI ID from the `ElasticNetworkInterface` attachment's `networkInterfaceId` detail (as the old `dns-updater` did). `ec2:DescribeNetworkInterfaces` → public IPv4. Retry with backoff, deadline 2 min.
+1. **Gate (exclusive start).** List the service's tasks with `ecs:ListTasks` (two calls: `desiredStatus=RUNNING` and `desiredStatus=STOPPED`, since a stopping task already has desired status `STOPPED`), then `ecs:DescribeTasks`. Wait while any task *other than this one* is still blocking. Poll every 5 s, deadline `CUSTODIAN_GATE_TIMEOUT`. While gated, the health endpoint reports unhealthy, so the Minecraft container (which `dependsOn` HEALTHY) does not start. When clear, mark healthy.
    - Blocking `lastStatus` values: `PROVISIONING`, `PENDING`, `ACTIVATING`, `RUNNING`, `DEACTIVATING`, `STOPPING`.
    - Non-blocking: `DEPROVISIONING`, `STOPPED` — the task's containers have exited, so it no longer holds the world.
    - On deadline: error → cleanup.
-4. **Publish DNS.** UPSERT `CUSTODIAN_DNS_RECORD` A → public IP, TTL `CUSTODIAN_DNS_TTL`. Retry, deadline 2 min.
-5. **Await ready.** Probe every `CUSTODIAN_WATCH_INTERVAL` until the first success. Failures are expected (Paper booting) and logged at debug. Deadline `CUSTODIAN_BOOT_TIMEOUT` → error → cleanup.
-6. **Emit start.**
-7. **Watch.** Every `CUSTODIAN_WATCH_INTERVAL`, probe for `online` player count.
+1. **Publish DNS.** UPSERT `CUSTODIAN_DNS_RECORD` A → public IP, TTL `CUSTODIAN_DNS_TTL`. Retry, deadline 2 min.
+1. **Await ready.** Probe every `CUSTODIAN_WATCH_INTERVAL` until the first success. Failures are expected (Paper booting) and logged at debug. Deadline `CUSTODIAN_BOOT_TIMEOUT` → error → cleanup.
+1. **Emit start.**
+1. **Watch.** Every `CUSTODIAN_WATCH_INTERVAL`, probe for `online` player count.
    - Probe failure counts as 0 players; logged at warn, and at error once `CUSTODIAN_PROBE_FAIL_WARN` consecutive failures are reached (no behaviour change).
    - Emit `active` / `inactive` only on 0↔≥1 transitions. Initial state after `start` is "inactive" (no event emitted for it).
    - The idle clock starts at `start` and resets whenever the count is ≥1. When the count has been 0 for `CUSTODIAN_IDLE_TIMEOUT` → shutdown.
-8. **Shutdown (idle).** Run cleanup, then block until SIGTERM (ECS stops the task because desired = 0, giving the Minecraft container its normal graceful stop), then exit 0. If no SIGTERM arrives within a post-reap wait (fixed default 5 min), log a warning and exit 0 anyway — the essential container exiting stops the task.
+1. **Shutdown (idle).** Run cleanup, then block until SIGTERM (ECS stops the task because desired = 0, giving the Minecraft container its normal graceful stop), then exit 0. If no SIGTERM arrives within a post-reap wait (fixed default 5 min), log a warning and exit 0 anyway — the essential container exiting stops the task.
 
 ### Cleanup (runs at most once)
 
@@ -35,8 +35,8 @@ Triggered by: idle shutdown, SIGTERM/SIGINT in any state, any error after config
 Order (cost first — a Spot SIGTERM leaves ≤120 s):
 
 1. **Reap** — `ecs:UpdateService desiredCount=0`. Retry with backoff, deadline 60 s.
-2. **Park DNS** — if `CUSTODIAN_DNS_PARKED_IP` is set and DNS was published, UPSERT the record to it. Deadline 10 s, best-effort.
-3. **Emit `stop`** — deadline 10 s, best-effort.
+1. **Park DNS** — if `CUSTODIAN_DNS_PARKED_IP` is set and DNS was published, UPSERT the record to it. Deadline 10 s, best-effort.
+1. **Emit `stop`** — deadline 10 s, best-effort.
 
 Exit code: 0 for idle shutdown and SIGTERM; 1 for error paths.
 
@@ -45,7 +45,7 @@ Exit code: 0 for idle shutdown and SIGTERM; 1 for error paths.
 Environment variables only. Durations use Go syntax (`30s`, `10m`).
 
 | Variable | Required | Default | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `CUSTODIAN_CLUSTER` | yes | — | ECS cluster name |
 | `CUSTODIAN_SERVICE` | yes | — | ECS service name |
 | `CUSTODIAN_DNS_ZONE_ID` | yes | — | Route 53 hosted zone ID |
@@ -69,7 +69,7 @@ Environment variables only. Durations use Go syntax (`30s`, `10m`).
 Task role permissions:
 
 | Action | Resource | Used for |
-|---|---|---|
+| --- | --- | --- |
 | `ec2:DescribeNetworkInterfaces` | `*` | ENI → public IP |
 | `route53:ChangeResourceRecordSets` | the hosted zone | Publish / park the A record |
 | `ecs:UpdateService` | the service | Reap (desired count 0) |
@@ -120,7 +120,7 @@ Published to `CUSTODIAN_SNS_TOPIC_ARN` when set. Consumed by `notice-discord`, `
 ```
 
 | Event | When |
-|---|---|
+| --- | --- |
 | `start` | Server first answers a status ping (after DNS is published) |
 | `active` | Player count goes from 0 to ≥1 |
 | `inactive` | Player count goes from ≥1 to 0 |

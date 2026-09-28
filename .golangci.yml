@@ -432,6 +432,6 @@ linters:
           - gosec
           - noctx
           - wrapcheck
-      - path: 'cmd/'
+      - path: "cmd/"
         linters:
           - testpackage
