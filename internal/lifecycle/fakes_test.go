@@ -1,7 +1,9 @@
 package lifecycle_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -199,6 +201,7 @@ type harness struct {
 	notifier   *fakeNotifier
 	watcher    *fakeWatcher
 	health     *fakeHealth
+	logs       *logCapture
 	settings   lifecycle.Settings
 }
 
@@ -215,6 +218,7 @@ func newHarness() *harness {
 		notifier: &fakeNotifier{rec: rec},
 		watcher:  &fakeWatcher{rec: rec, fn: func(int) (int, error) { return 0, nil }},
 		health:   &fakeHealth{rec: rec},
+		logs:     &logCapture{},
 		settings: testSettings(),
 	}
 }
@@ -247,6 +251,31 @@ func (h *harness) machine() *lifecycle.Machine {
 		Notifier:   h.notifier,
 		Watcher:    h.watcher,
 		Health:     h.health,
-		Logger:     slog.New(slog.DiscardHandler),
+		Logger:     slog.New(slog.NewJSONHandler(h.logs, nil)),
 	}, h.settings)
+}
+
+// logCapture collects the machine's JSON log lines; safe for concurrent writes.
+type logCapture struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (c *logCapture) Write(p []byte) (int, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.buf.Write(p)
+}
+
+// record returns the attributes of the first log record with msg, or nil.
+func (c *logCapture) record(msg string) map[string]any {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, line := range bytes.Split(c.buf.Bytes(), []byte("\n")) {
+		var rec map[string]any
+		if json.Unmarshal(line, &rec) == nil && rec["msg"] == msg {
+			return rec
+		}
+	}
+	return nil
 }

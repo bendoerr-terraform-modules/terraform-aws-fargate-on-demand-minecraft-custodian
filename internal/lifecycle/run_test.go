@@ -43,12 +43,43 @@ func TestRunIdleShutdown(t *testing.T) {
 	}
 }
 
+func TestRunLogsIdleAsReadableDuration(t *testing.T) {
+	h := newHarness()
+	runWithin(t.Context(), t, h.machine())
+	rec := h.logs.record("idle timeout reached")
+	if rec == nil {
+		t.Fatal(`no "idle timeout reached" log record`)
+	}
+	idle, ok := rec["idle"].(string)
+	if !ok {
+		t.Fatalf("idle = %#v (%T); want a duration string like \"15m0s\"", rec["idle"], rec["idle"])
+	}
+	if d, err := time.ParseDuration(idle); err != nil || d < h.settings.IdleTimeout {
+		t.Errorf("idle = %q; want a parseable duration >= %s", idle, h.settings.IdleTimeout)
+	}
+}
+
+func TestRunLogsDNSParked(t *testing.T) {
+	h := newHarness()
+	runWithin(t.Context(), t, h.machine())
+	rec := h.logs.record("dns record parked")
+	if rec == nil {
+		t.Fatal(`no "dns record parked" log record after parking`)
+	}
+	if rec["ip"] != parkedIP {
+		t.Errorf("ip = %v; want %s", rec["ip"], parkedIP)
+	}
+}
+
 func TestRunNoParkWithoutParkedIP(t *testing.T) {
 	h := newHarness()
 	h.settings.ParkedIP = ""
 	runWithin(t.Context(), t, h.machine())
 	if got := h.rec.only("dns:"); !slices.Equal(got, []string{"dns:" + publicIP}) {
 		t.Errorf("dns calls = %v; want only the publish", got)
+	}
+	if h.logs.record("dns record parked") != nil {
+		t.Error(`"dns record parked" logged without a parked IP`)
 	}
 }
 

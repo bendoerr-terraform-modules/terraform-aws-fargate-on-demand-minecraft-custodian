@@ -180,7 +180,12 @@ func (m *Machine) watch(ctx context.Context) error {
 			m.notify(ctx, EventInactive)
 		}
 		if idle := now.Sub(lastSeen); idle >= m.settings.IdleTimeout {
-			m.log.InfoContext(ctx, "idle timeout reached", slog.Duration("idle", idle))
+			// A string, not slog.Duration: the JSON handler would log raw nanoseconds.
+			m.log.InfoContext(
+				ctx,
+				"idle timeout reached",
+				slog.String("idle", idle.Truncate(time.Millisecond).String()),
+			)
 			return nil
 		}
 	}
