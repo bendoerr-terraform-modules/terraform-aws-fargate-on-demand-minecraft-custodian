@@ -188,6 +188,8 @@ func (m *Machine) cleanup(reason string) {
 			park := func(callCtx context.Context) error { return m.deps.DNS.Upsert(callCtx, m.settings.ParkedIP) }
 			if err := retry.Do(ctx, m.settings.BestEffortRetry, park); err != nil {
 				m.log.WarnContext(ctx, "parking the DNS record failed", slog.Any("error", err))
+			} else {
+				m.log.InfoContext(ctx, "dns record parked", slog.String("ip", m.settings.ParkedIP))
 			}
 		}
 
