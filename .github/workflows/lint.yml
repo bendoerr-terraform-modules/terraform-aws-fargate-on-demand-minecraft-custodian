@@ -95,7 +95,7 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: alex
-        uses: reviewdog/action-alex@8ea6934ac252503fe358596c681d9899f0d85485 # v1.18.0
+        uses: reviewdog/action-alex@a86fdb2da29e06d659cd3bd528095479a2c5c01e # v1.19.0
         with:
           github_token: ${{ github.token }}
           reporter: github-pr-review
@@ -137,7 +137,7 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: hadolint
-        uses: reviewdog/action-hadolint@9d9a44af664599d7fe5ed5ee3d66d2d236cb7f8f # v1.54.0
+        uses: reviewdog/action-hadolint@1df92335c6c70880e301926d46148aeb27de1912 # v1.55.0
         with:
           github_token: ${{ github.token }}
           reporter: github-pr-review
