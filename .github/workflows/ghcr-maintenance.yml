@@ -6,8 +6,13 @@ on:
   # every sunday at 00:00
   schedule:
     - cron: "0 0 * * SUN"
-  # or manually
+  # or manually; a manual run only logs what it would delete unless dry-run is unticked
   workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Only log what would be deleted
+        type: boolean
+        default: true
 
 # The job below grants itself packages: write; anything added later starts read-only.
 permissions:
@@ -20,20 +25,24 @@ jobs:
     permissions:
       packages: write
     steps:
+      # The platform images under a multi-arch tag are untagged package versions.
+      # This action leaves them alone; the previous one deleted them as untagged,
+      # which left every release tag unpullable.
       - name: Delete PR Image
-        uses: bots-house/ghcr-delete-image-action@3827559c68cb4dcdf54d813ea9853be6d468d3a4 # v1.1.0
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         # Same condition as the publish step in docker.yml; unpublished PRs have no image to delete.
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]'
         with:
           owner: bendoerr-terraform-modules
-          name: terraform-aws-fargate-on-demand-minecraft-custodian
-          token: ${{ github.token }}
-          tag: pr-${{github.event.pull_request.number}}
+          package: terraform-aws-fargate-on-demand-minecraft-custodian
+          delete-tags: pr-${{github.event.pull_request.number}}
       - name: Delete Untagged Images
-        uses: bots-house/ghcr-delete-image-action@3827559c68cb4dcdf54d813ea9853be6d468d3a4 # v1.1.0
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         if: github.event_name != 'pull_request'
         with:
           owner: bendoerr-terraform-modules
-          name: terraform-aws-fargate-on-demand-minecraft-custodian
-          token: ${{ github.token }}
-          untagged-keep-latest: 1
+          package: terraform-aws-fargate-on-demand-minecraft-custodian
+          keep-n-untagged: 1
+          # Warns in the log when a multi-arch tag is missing a platform image.
+          validate: true
+          dry-run: ${{ inputs.dry-run || false }}
