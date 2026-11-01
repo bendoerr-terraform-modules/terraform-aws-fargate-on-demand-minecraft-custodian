@@ -18,7 +18,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
 
@@ -27,7 +27,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: golangci-lint
-        uses: step-security/action-golangci-lint@096b936e7ef257fb5595a0461574bec4dd400fbf # v2.10.0
+        uses: step-security/action-golangci-lint@caa574f1777a15e8c7ca2a8887e59a81b64438eb # v2.10.2
         with:
           github_token: ${{ github.token }}
           reporter: github-pr-review
@@ -41,7 +41,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
 
@@ -66,13 +66,13 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: misspell
-        uses: step-security/action-misspell@85d31a4bcbf1c3d99e4f224c148330e45b5a63cf # v1.27.2
+        uses: step-security/action-misspell@95b9d3769e9fa54b818ba3a9d54672ff5c313dfe # v1.30.1
         with:
           github_token: ${{ github.token }}
           reporter: github-pr-review
@@ -89,7 +89,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
 
@@ -110,13 +110,13 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: markdownlint
-        uses: step-security/action-markdownlint@3334baf7cc71c6d7fd284d955e1bf54a2b2ee31a # v0.28.0
+        uses: step-security/action-markdownlint@c91b7c102591cac31fa35dbb9dfd6ab31da5e4fa # v0.31.2
         with:
           github_token: ${{ github.token }}
           reporter: github-pr-review
@@ -131,7 +131,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
 
@@ -150,7 +150,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
 
@@ -168,7 +168,7 @@ jobs:
       contents: read
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
 
